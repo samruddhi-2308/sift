@@ -26,8 +26,13 @@ export async function runMigration(): Promise<void> {
   }
 }
 
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+
 // Execute if run directly via tsx
-if (import.meta.url === `file://${process.argv[1]}`) {
+const isDirectRun = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
+
+if (isDirectRun) {
   runMigration()
     .then(() => {
       logger.info('Migration finished, exiting');

@@ -94,7 +94,12 @@ export async function runEmbedBatch(batchSize = 100): Promise<void> {
   await redis.quit();
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+
+const isDirectRun = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
+
+if (isDirectRun) {
   const arg = process.argv[2];
   if (arg === 'embed-batch') {
     const size = parseInt(process.argv[3] || '100', 10);

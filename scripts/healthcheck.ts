@@ -105,7 +105,12 @@ export async function runHealthCheck(): Promise<boolean> {
   return allHealthy;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+
+const isDirectRun = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
+
+if (isDirectRun) {
   runHealthCheck()
     .then((ok) => process.exit(ok ? 0 : 1))
     .catch((err) => {

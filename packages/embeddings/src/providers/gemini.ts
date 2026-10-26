@@ -10,9 +10,9 @@ export class GeminiEmbeddingProvider implements EmbeddingProvider {
   readonly version = 1;
   private apiKey: string;
 
-  constructor(apiKey: string, model = 'text-embedding-004') {
+  constructor(apiKey: string, model = 'gemini-embedding-001') {
     this.apiKey = apiKey;
-    this.model = model;
+    this.model = model === 'text-embedding-004' ? 'gemini-embedding-001' : model;
   }
 
   async embed(texts: string[]): Promise<number[][]> {
@@ -47,6 +47,7 @@ export class GeminiEmbeddingProvider implements EmbeddingProvider {
       content: {
         parts: [{ text }],
       },
+      outputDimensionality: this.dimension,
     }));
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {

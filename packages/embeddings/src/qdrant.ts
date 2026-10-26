@@ -23,6 +23,7 @@ export class QdrantManager {
       url,
       apiKey: apiKey || undefined,
       timeout: 5000,
+      checkCompatibility: false,
     });
     this.collectionName = collectionName;
   }
@@ -35,7 +36,26 @@ export class QdrantManager {
       const collections = await this.client.getCollections();
       const exists = collections.collections.some((c) => c.name === this.collectionName);
 
-      if (!exists) {
+      let needsCreation = !exists;
+
+      if (exists) {
+        try {
+          const colInfo = await this.client.getCollection(this.collectionName);
+          const currentSize = (colInfo.config?.params?.vectors as { size?: number })?.size;
+          if (currentSize && currentSize !== vectorDimension) {
+            logger.warn(
+              { collection: this.collectionName, currentSize, requiredSize: vectorDimension },
+              'Qdrant collection dimension mismatch; recreating collection for new embedding model'
+            );
+            await this.client.deleteCollection(this.collectionName);
+            needsCreation = true;
+          }
+        } catch {
+          // If inspection fails, fallback to using existing
+        }
+      }
+
+      if (needsCreation) {
         logger.info(
           { collection: this.collectionName, dimension: vectorDimension },
           'Creating Qdrant collection with HNSW index (m=16, ef_construct=128)'
@@ -67,7 +87,7 @@ export class QdrantManager {
           'Qdrant collection and payload indexes created'
         );
       } else {
-        logger.debug({ collection: this.collectionName }, 'Qdrant collection already exists');
+        logger.debug({ collection: this.collectionName }, 'Qdrant collection already exists with matching dimension');
       }
     } catch (err) {
       logger.error({ err, collection: this.collectionName }, 'Failed ensuring Qdrant collection');

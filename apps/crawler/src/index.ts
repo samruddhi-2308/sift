@@ -100,8 +100,13 @@ export async function startCrawler(): Promise<CrawlerServiceInstance> {
   return { frontier, dlqHandler, fetchWorker, parseWorker, stop };
 }
 
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+
 // Start if executed directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+const isDirectRun = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
+
+if (isDirectRun) {
   startCrawler().catch((err) => {
     logger.fatal({ err }, 'Fatal crawler startup failure');
     process.exit(1);

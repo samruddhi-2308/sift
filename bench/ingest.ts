@@ -100,7 +100,11 @@ export async function runIngestBenchmark(
   return result;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+import { fileURLToPath } from 'node:url';
+
+const isDirectRun = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
+
+if (isDirectRun) {
   const target = parseInt(process.argv[2] || '100000', 10);
   const batch = parseInt(process.argv[3] || '1000', 10);
 
