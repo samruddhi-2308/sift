@@ -1,0 +1,30 @@
+{
+  "name": "@sift/embeddings",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@qdrant/js-client-rest": "^1.13.0",
+    "@sift/core": "workspace:*",
+    "@sift/db": "workspace:*",
+    "@sift/queue": "workspace:*",
+    "openai": "^4.79.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

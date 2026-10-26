@@ -73,11 +73,41 @@ sift/
 | **Phase 0** | **Foundations (Monorepo, Docker Compose, @sift/core, @sift/db, Healthcheck)** | **✅ Completed** |
 | **Phase 1** | **Crawler Core (robots.txt, token bucket politeness, Bloom dedupe, DLQ)** | **✅ Completed** |
 | **Phase 2** | **Storage & Bulk Ingestion (batches 500-1000, streaming WET/dump importers)** | **✅ Completed** |
-| **Phase 3** | Chunking, Embeddings & Qdrant Indexing (HNSW, title-prepending) | 🔄 Next |
-| **Phase 4** | Hybrid Search API (Mongo keyword + Qdrant vector + RRF + Re-ranking) | ⏳ Queued |
+| **Phase 3** | **Chunking, Embeddings & Qdrant Indexing (HNSW, title-prepending)** | **✅ Completed** |
+| **Phase 4** | Hybrid Search API (Mongo keyword + Qdrant vector + RRF + Re-ranking) | 🔄 Next |
 | **Phase 5** | Playwright Browser Agent (a11y tree, Observe-Decide-Act, schema extraction) | ⏳ Queued |
 | **Phase 6** | Evals & Benchmarks (nDCG@10, MRR, 100-task agent eval, p95 latencies) | ⏳ Queued |
 | **Phase 7** | Modern Search UI, A/B Retrieval Inspector & Observability | ⏳ Queued |
+
+---
+
+## Chunking, Embeddings & Qdrant Vector DB (Phase 3)
+
+* **Paragraph & Sentence-Aware Chunker** (`packages/embeddings/src/chunker.ts`):
+  * Breaks document text on natural boundaries to ~400 tokens with 50-token overlap.
+  * **Title-Prepending**: Injects `Title: <title>\n\n<chunk>` to preserve document context in isolated vector searches.
+  * Limits chunks per document (default max 2) for cost control.
+* **Provider Agnostic Embedding Layer** (`packages/embeddings/src/providers/`):
+  * **Gemini Provider**: Google AI Studio `text-embedding-004` (768-d) with `batchEmbedContents` and 429 exponential backoff.
+  * **OpenAI Provider**: `text-embedding-3-small` (1536-d) with batching.
+  * **Local Deterministic Provider**: 384-d unit vectors for offline development, local unit tests, and CI without API keys.
+* **Redis Embedding Cache** (`packages/embeddings/src/cache.ts`):
+  * SHA-256 content-hash caching (`sift:emb:<model>:<hash>`) with 30-day TTL. Prevents re-embedding duplicate chunks or mirror pages.
+* **Qdrant Vector DB Client** (`packages/embeddings/src/qdrant.ts`):
+  * Auto-creates HNSW collection (`m=16`, `ef_construct=128`, Cosine distance).
+  * Creates payload indexes on `domain` and `lang` for instant payload filtering.
+  * Batch upserts chunk points with deterministic UUIDs.
+* **Idempotent Embed Worker** (`apps/indexer/src/embed-worker.ts`):
+  * Consumes un-embedded docs from MongoDB, generates vectors, upserts to Qdrant, and updates Mongo metadata. Safe to kill and resume at any time.
+
+### Vector Indexing Commands
+```bash
+# Start Indexer (running both bulk ingest and embed workers)
+pnpm indexer:start
+
+# Run manual one-off embedding batch on unembedded documents
+pnpm indexer:embed 100
+```
 
 ---
 
