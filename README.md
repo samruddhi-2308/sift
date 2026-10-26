@@ -74,10 +74,45 @@ sift/
 | **Phase 1** | **Crawler Core (robots.txt, token bucket politeness, Bloom dedupe, DLQ)** | **✅ Completed** |
 | **Phase 2** | **Storage & Bulk Ingestion (batches 500-1000, streaming WET/dump importers)** | **✅ Completed** |
 | **Phase 3** | **Chunking, Embeddings & Qdrant Indexing (HNSW, title-prepending)** | **✅ Completed** |
-| **Phase 4** | Hybrid Search API (Mongo keyword + Qdrant vector + RRF + Re-ranking) | 🔄 Next |
-| **Phase 5** | Playwright Browser Agent (a11y tree, Observe-Decide-Act, schema extraction) | ⏳ Queued |
+| **Phase 4** | **Hybrid Search API (Mongo keyword + Qdrant vector + RRF + Re-ranking)** | **✅ Completed** |
+| **Phase 5** | Playwright Browser Agent (a11y tree, Observe-Decide-Act, schema extraction) | 🔄 Next |
 | **Phase 6** | Evals & Benchmarks (nDCG@10, MRR, 100-task agent eval, p95 latencies) | ⏳ Queued |
 | **Phase 7** | Modern Search UI, A/B Retrieval Inspector & Observability | ⏳ Queued |
+
+---
+
+## Hybrid Search Engine & Fastify API (Phase 4)
+
+* **Dual-Leg Parallel Retrieval** (`packages/search/src/service.ts`):
+  * **Keyword Leg** (`packages/search/src/keyword.ts`): MongoDB text search over weighted text index (`title: 10`, `headings: 5`, `text: 1`), returning top 100 candidates in ~10–25ms.
+  * **Vector Leg** (`packages/search/src/vector.ts`): Dense query embedding via Gemini `gemini-embedding-001` (768-d) with Redis query caching (`sift:query_emb:*`), querying Qdrant HNSW cosine index (`m=16`, `ef_construct=128`), and grouping candidate chunks by document.
+  * **Parallel Execution with Per-Leg Timeout**: Runs both legs concurrently via `Promise.allSettled`. If Qdrant or embedding times out, the search automatically degrades gracefully to pure keyword retrieval without failing the user request.
+* **Reciprocal Rank Fusion (RRF)** (`packages/search/src/fusion.ts`):
+  * Blends ranks using $RRF(d) = \sum_{m} \frac{1}{60 + r_m(d)}$.
+  * Sub-1ms fusion step providing robust multi-modal ranking without score calibration issues.
+* **Semantic Re-ranking** (`packages/search/src/rerank.ts`):
+  * Re-scores top 20 candidates using Gemini Flash (`gemini-2.5-flash`) with structured JSON schema output (`[{"index": 0, "score": 9.2}]`).
+  * Seamless fallback to local deterministic cross-encoder scoring if offline or rate-limited. Toggleable with `rerank=true` or `mode=hybrid_rerank`.
+* **Snippet Extraction & Query Highlighting** (`packages/search/src/snippets.ts`):
+  * Selects the highest-density passage from the matching vector chunk or document body, truncates around sentence boundaries, and highlights matched terms with `<mark>` tags.
+* **Fastify Production API** (`apps/api`):
+  * `GET /search?q=...&limit=...&offset=...&domain=...&lang=...&rerank=...&mode=...`: Main search endpoint.
+  * `GET /search/compare?q=...`: Side-by-side comparison across all 4 modes (Keyword, Vector, Hybrid RRF, Hybrid+Rerank).
+  * `GET /metrics`: Prometheus latency histograms and query counters (`sift_search_latency_seconds`).
+  * `GET /health`: Multi-service deep healthcheck.
+  * IP Rate Limiting (`@fastify/rate-limit`, 120 req/min) and CORS enabled.
+
+### Search API Commands
+```bash
+# Start the Fastify Search API server (Port 3001)
+pnpm api:start
+
+# Start API in dev watch mode
+pnpm api:dev
+
+# Run retrieval verification across all 4 modes
+npx tsx scripts/verify-search.ts
+```
 
 ---
 

@@ -13,12 +13,16 @@ export interface QdrantPoint {
 export class QdrantManager {
   private client: QdrantClient;
   private collectionName: string;
+  private url: string;
+  private apiKey: string;
 
   constructor(
     url = config.QDRANT_URL,
     apiKey = config.QDRANT_API_KEY,
     collectionName = config.QDRANT_COLLECTION_NAME
   ) {
+    this.url = url;
+    this.apiKey = apiKey;
     this.client = new QdrantClient({
       url,
       apiKey: apiKey || undefined,
@@ -142,15 +146,42 @@ export class QdrantManager {
 
     const filter = mustFilters.length > 0 ? { must: mustFilters } : undefined;
 
-    const res = await this.client.query(this.collectionName, {
-      query: queryVector,
-      limit,
-      filter,
-      score_threshold: options.scoreThreshold,
-      with_payload: true,
-    });
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (this.apiKey) {
+      headers['api-key'] = this.apiKey;
+    }
 
-    return (res.points || []).map((p) => ({
+    const response = await fetch(
+      `${this.url}/collections/${this.collectionName}/points/search`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          vector: queryVector,
+          limit,
+          filter,
+          score_threshold: options.scoreThreshold,
+          with_payload: true,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Qdrant search error HTTP ${response.status}: ${errText}`);
+    }
+
+    const json = (await response.json()) as {
+      result?: Array<{
+        id: string | number;
+        score: number;
+        payload?: Record<string, unknown>;
+      }>;
+    };
+
+    return (json.result || []).map((p) => ({
       id: p.id,
       score: p.score ?? 0,
       payload: (p.payload || {}) as unknown as QdrantChunkPayload,

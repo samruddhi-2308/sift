@@ -24,7 +24,9 @@
     "bench:query": "tsx bench/query.ts",
     "import:wiki": "tsx packages/db/src/importers/cli.ts wiki",
     "import:wet": "tsx packages/db/src/importers/cli.ts wet",
-    "import:synthetic": "tsx packages/db/src/importers/cli.ts synthetic"
+    "import:synthetic": "tsx packages/db/src/importers/cli.ts synthetic",
+    "api:start": "pnpm --filter @sift/api start",
+    "api:dev": "pnpm --filter @sift/api dev"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

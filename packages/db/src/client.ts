@@ -1,4 +1,5 @@
 import { MongoClient, type Db } from 'mongodb';
+export type { Db, MongoClient };
 import { config, createLogger } from '@sift/core';
 
 const logger = createLogger('db-client');

@@ -175,6 +175,28 @@ sift/
 
 ---
 
+### Phase 4: Hybrid Search Engine & Fastify API
+- **Dual-Leg Parallel Retrieval (`packages/search/src/service.ts`)**:
+  - **Keyword Leg (`packages/search/src/keyword.ts`)**: MongoDB full-text search with field weights (`title: 10`, `headings: 5`, `text: 1`) returning top 100 documents in ~10–25ms.
+  - **Vector Leg (`packages/search/src/vector.ts`)**: Dense query embedding via Gemini `gemini-embedding-001` (768-d) with Redis query caching (`sift:query_emb:*`), querying Qdrant HNSW cosine index, and grouping candidate chunk vectors by document to extract maximum chunk similarity and best passage text.
+  - **Graceful Degradation with Circuit Breakers**: Runs both legs concurrently via `Promise.allSettled` with per-leg timeout caps. If Qdrant or embedding times out, the search automatically degrades gracefully to pure keyword retrieval without failing the user request.
+- **Reciprocal Rank Fusion (RRF) (`packages/search/src/fusion.ts`)**:
+  - Fuses rankings with $RRF(d) = \sum_{m \in \{\text{keyword}, \text{vector}\}} \frac{1}{60 + r_m(d)}$.
+  - Sub-1ms fusion step providing robust multi-modal ranking without score calibration issues.
+- **Semantic Re-ranking (`packages/search/src/rerank.ts`)**:
+  - Re-scores top 20 candidates using Gemini Flash (`gemini-2.5-flash`) with structured JSON schema output (`[{"index": 0, "score": 9.2}]`).
+  - Seamless fallback to local deterministic cross-encoder scoring if offline or rate-limited. Toggleable with `rerank=true` or `mode=hybrid_rerank`.
+- **Snippet Extraction & Query Highlighting (`packages/search/src/snippets.ts`)**:
+  - Selects the highest-density passage from the matching vector chunk or document body, truncates around sentence boundaries, and highlights matched terms with `<mark>` tags.
+- **Fastify Production API (`apps/api`)**:
+  - `GET /search?q=...&limit=...&offset=...&domain=...&lang=...&rerank=...&mode=...`: Main search endpoint.
+  - `GET /search/compare?q=...`: Side-by-side comparison across all 4 modes (Keyword, Vector, Hybrid RRF, Hybrid+Rerank).
+  - `GET /metrics`: Prometheus latency histograms and query counters (`sift_search_latency_seconds`).
+  - `GET /health`: Multi-service deep healthcheck.
+  - IP Rate Limiting (`@fastify/rate-limit`, 120 req/min) and CORS enabled.
+
+---
+
 ## 4. Core Computer Science & Systems Engineering Concepts
 
 | Concept | Where Used | Why It Matters |
@@ -205,50 +227,38 @@ Every component built so far is covered by automated unit and integration tests.
 - `packages/embeddings/test/chunker.test.ts` (4 tests): Paragraph and sentence chunking, token estimation, overlap sliding, title prepending.
 - `packages/embeddings/test/local-provider.test.ts` (5 tests): Unit vector generation, cosine normalization, batch consistency.
 - `apps/indexer/test/point-id.test.ts` (3 tests): Deterministic UUID generation for vector points across restarts.
+- `packages/search/test/fusion.test.ts` (3 tests): Reciprocal Rank Fusion score blending, rank preservation, tie-breakers.
+- `packages/search/test/snippets.test.ts` (3 tests): Contextual window selection, query term extraction, `<mark>` tag highlighting.
+- `packages/search/test/rerank.test.ts` (1 test): Semantic re-ranking promotion and deterministic local fallback scoring.
+- `apps/api/test/api.test.ts` (6 tests): Fastify HTTP injection testing for `/search`, `/search/compare`, `/health`, `/metrics`, query validation, and fallback modes.
 
-**Total**: **12 test suites, 54 tests passing, 0 TypeScript errors.**
+**Total**: **16 test suites, 67 tests passing, 0 TypeScript errors.**
 
 ### Live Verification Status
-- **Google Gemini API**: Verified and active (`gemini-embedding-001`, 768 dimensions with `outputDimensionality: 768`).
+- **Google Gemini API**: Verified and active (`gemini-embedding-001`, 768 dimensions with `outputDimensionality: 768`, and `gemini-2.5-flash` for re-ranking).
 - **Qdrant Vector DB**: Verified and active with HNSW index and payload indexes (`sift_chunks`).
-- **Redis Stack**: Verified and active (`PING -> PONG`, RedisBloom enabled).
+- **Redis Stack**: Verified and active (`PING -> PONG`, RedisBloom enabled, query cache active).
 - **MongoDB**: Verified and active with 8 compound/text/partial indexes applied.
-- **End-to-End Pipeline**: 500 documents ingested and vector-indexed.
+- **Search Retrieval Benchmark**: Verified live on indexed corpus across Keyword (9-25ms), Vector (~110ms), Hybrid RRF (20-35ms), and Re-ranked modes.
 
 ---
 
-## 6. Roadmap: What Comes Next (Phase 4 – 7)
+## 6. Roadmap: What Comes Next (Phase 5 – 7)
 
 ```
-[Phase 0: Done] -> [Phase 1: Done] -> [Phase 2: Done] -> [Phase 3: Done]
-                                                                │
-                                                                ▼
-                                                    [Phase 4: Hybrid Search API]
-                                                                │
-                                                                ▼
-                                                    [Phase 5: Browser Agent]
-                                                                │
-                                                                ▼
-                                                    [Phase 6: Evals & Benchmarks]
-                                                                │
-                                                                ▼
-                                                    [Phase 7: Modern UI & Dashboards]
+[Phase 0: Done] -> [Phase 1: Done] -> [Phase 2: Done] -> [Phase 3: Done] -> [Phase 4: Done]
+                                                                                  │
+                                                                                  ▼
+                                                                      [Phase 5: Browser Agent]
+                                                                                  │
+                                                                                  ▼
+                                                                      [Phase 6: Evals & Benchmarks]
+                                                                                  │
+                                                                                  ▼
+                                                                      [Phase 7: Modern UI & Dashboards]
 ```
 
-### Phase 4: Hybrid Search API (Next Phase)
-1. **Search Package (`packages/search`)**:
-   - `KeywordSearch`: MongoDB text search with score weights (title: 10, headings: 5, text: 1).
-   - `VectorSearch`: Query embedding via provider + Qdrant top-100 vector search grouped by document ID.
-   - `FusionEngine`: Reciprocal Rank Fusion ($k=60$) combining keyword and vector candidate sets.
-   - `Reranker`: Cross-encoder / LLM re-ranking on the top 30 candidates with a toggle (`rerank=true`).
-   - `SnippetGenerator`: Extraction and highlighting of the best-matching text passage.
-2. **Fastify Search API (`apps/api`)**:
-   - Endpoint: `GET /search?q=...&limit=...&domain=...&lang=...&rerank=...`
-   - Graceful fallback: If Qdrant or embedding API is down, automatically fallback to keyword search without failing the request.
-   - Prometheus metrics endpoint (`GET /metrics`) with latency histograms per retrieval stage.
-   - Redis query caching with short TTL and rate limiting.
-
-### Phase 5: Autonomous Browser Agent
+### Phase 5: Autonomous Browser Agent (Next Phase)
 - Playwright-driven Observe-Decide-Act loop.
 - Pruned DOM & accessibility tree representations for the LLM.
 - Schema-validated structured extraction (e.g. products, prices, papers) with Zod.
