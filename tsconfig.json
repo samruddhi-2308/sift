@@ -1,0 +1,23 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@sift/core": ["./packages/core/src/index.ts"],
+      "@sift/db": ["./packages/db/src/index.ts"],
+      "@sift/queue": ["./packages/queue/src/index.ts"],
+      "@sift/embeddings": ["./packages/embeddings/src/index.ts"],
+      "@sift/search": ["./packages/search/src/index.ts"]
+    }
+  },
+  "include": [
+    "packages/*/src/**/*",
+    "packages/*/test/**/*",
+    "apps/*/src/**/*",
+    "apps/*/test/**/*",
+    "bench/**/*",
+    "eval/**/*",
+    "scripts/**/*"
+  ],
+  "exclude": ["node_modules", "dist", "**/node_modules", "**/dist"]
+}
