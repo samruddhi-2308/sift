@@ -13,7 +13,11 @@
     "format": "prettier --write \"**/*.{ts,json,md,yml,yaml}\"",
     "format:check": "prettier --check \"**/*.{ts,json,md,yml,yaml}\"",
     "db:migrate": "tsx packages/db/src/migrate.ts",
-    "healthcheck": "tsx scripts/healthcheck.ts"
+    "healthcheck": "tsx scripts/healthcheck.ts",
+    "crawler:start": "pnpm --filter @sift/crawler start",
+    "crawler:seed": "pnpm --filter @sift/crawler seed",
+    "dlq:replay": "pnpm --filter @sift/crawler dlq:replay",
+    "audit:robots": "pnpm --filter @sift/crawler cli audit-robots"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

@@ -71,13 +71,41 @@ sift/
 | Phase | Description | Status |
 | --- | --- | --- |
 | **Phase 0** | **Foundations (Monorepo, Docker Compose, @sift/core, @sift/db, Healthcheck)** | **✅ Completed** |
-| **Phase 1** | Crawler Core (robots.txt, token bucket rate limiter, Bloom dedupe, DLQ) | 🔄 Next |
-| **Phase 2** | Storage & Bulk Ingestion (batches 500-1000, streaming WET/dump importers) | ⏳ Queued |
+| **Phase 1** | **Crawler Core (robots.txt, token bucket politeness, Bloom dedupe, DLQ)** | **✅ Completed** |
+| **Phase 2** | Storage & Bulk Ingestion (batches 500-1000, streaming WET/dump importers) | 🔄 Next |
 | **Phase 3** | Chunking, Embeddings & Qdrant Indexing (HNSW, title-prepending) | ⏳ Queued |
 | **Phase 4** | Hybrid Search API (Mongo keyword + Qdrant vector + RRF + Re-ranking) | ⏳ Queued |
 | **Phase 5** | Playwright Browser Agent (a11y tree, Observe-Decide-Act, schema extraction) | ⏳ Queued |
 | **Phase 6** | Evals & Benchmarks (nDCG@10, MRR, 100-task agent eval, p95 latencies) | ⏳ Queued |
 | **Phase 7** | Modern Search UI, A/B Retrieval Inspector & Observability | ⏳ Queued |
+
+---
+
+## Crawler Usage & CLI (Phase 1)
+
+The distributed crawler (`apps/crawler`) implements production politeness and fault tolerance:
+* **RFC 3986 URL Normalizer**: Strips marketing/tracking query parameters (`utm_*`, `fbclid`, `gclid`), sorts query params, resolves relative links, and generates a deterministic 64-bit `urlHash`.
+* **Deduplication Engine**: Uses RedisBloom filter (`BF.EXISTS` / `BF.ADD`) for $O(1)$ fast rejection, backed by MongoDB unique index for correctness.
+* **SimHash Near-Duplicate Clustering**: Computes 64-bit SimHash with term-frequency weighting to identify duplicate and mirrored pages with Hamming distance $\le 3$.
+* **Politeness & robots.txt**: Caches remote `robots.txt` in Redis (24h TTL), respects `Disallow` rules and `Crawl-delay`, and executes per-domain token bucket rate limiting with randomized jitter.
+* **SSRF Guard**: Pre-resolves DNS to block private IP ranges (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `127.0.0.0/8`, `169.254.169.254`, `::1`).
+* **Spider Trap Defense**: Rejects repeating directory paths, calendar traps, and pagination runaways.
+* **Dead Letter Queue (DLQ)**: Classifies failures (`timeout`, `dns`, `blocked`, `too_large`, `rate_limited`) into MongoDB and BullMQ DLQ with administrative replay.
+
+### Crawler Commands
+```bash
+# Start background fetch and parse workers
+pnpm crawler:start
+
+# Seed the crawl frontier with initial URLs
+pnpm crawler:seed
+
+# Replay failed jobs from Dead Letter Queue
+pnpm dlq:replay --class=timeout --limit=50
+
+# Audit crawled URLs against cached robots.txt compliance
+pnpm audit:robots
+```
 
 ---
 
@@ -103,9 +131,10 @@ pnpm healthcheck
 # Apply compound & unique indexes to MongoDB
 pnpm db:migrate
 
-# Run unit tests
+# Run unit test suite (42 tests)
 pnpm test
 
-# Typecheck
+# Typecheck all packages & apps
 pnpm typecheck
 ```
+
