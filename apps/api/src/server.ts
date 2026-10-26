@@ -8,6 +8,7 @@ import { HybridSearchService, SemanticReranker } from '@sift/search';
 import { healthRoutes } from './routes/health.routes.js';
 import { metricsRoutes } from './routes/metrics.routes.js';
 import { searchRoutes } from './routes/search.routes.js';
+import { adminRoutes } from './routes/admin.routes.js';
 
 export interface ServerContext {
   db: Db;
@@ -46,6 +47,7 @@ export async function buildServer(ctx: ServerContext): Promise<FastifyInstance> 
   await app.register(healthRoutes, { qdrant });
   await app.register(metricsRoutes);
   await app.register(searchRoutes, { searchService });
+  await app.register(adminRoutes, { db: ctx.db });
 
   return app;
 }

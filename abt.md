@@ -343,18 +343,53 @@ Autonomous agents with browser access require strict security boundaries:
 
 ---
 
-## 7. Operational Cheat Sheet (CLI & Commands)
+## 7. Deep Dive: Phase 7 — UI, Observability, and Production Polish
+
+Phase 7 brings the entire Sift platform together with an operator dashboard, modern search interface, comprehensive observability, and system architecture documentation.
+
+### 7.1 Modern Search & Observability Web Application (`apps/web`)
+Built using React 18, Vite 6, TypeScript, and a bespoke Vanilla CSS design system (avoiding CSS framework bloat):
+- **Rich Dark Glassmorphism**: Tailored HSL color palette, subtle linear gradients, frosted glass backdrop filters, and custom scrollbars.
+- **Micro-Animations & Responsive Interactivity**: Real-time heartbeat indicator, tab transitions, hover states, and keyboard shortcut `/` to instantly focus search.
+- **Integrated View Suite**:
+  1. **Search View**: Unified search with real-time stage latency pills (`embedMs`, `keywordMs`, `vectorMs`, `fusionMs`, `rerankMs`, `totalMs`), mode selection (`hybrid_rerank`, `hybrid`, `vector`, `keyword`), domain filtering, and safe HTML snippet rendering.
+  2. **4-Way Compare View**: Dispatches queries in parallel to compare Keyword (BM25), Dense Vector (Qdrant HNSW), Hybrid (RRF $k=60$), and Cross-Encoder Re-ranked side-by-side with document overlap tags (`Universal`, `Shared`, `Unique`).
+  3. **Admin & Queue Telemetry Dashboard**: Live cluster health, corpus cardinality (total docs, embedded docs, domains, agent runs, DLQ errors), and real-time BullMQ queue depths across all 6 queues (`fetch`, `parse`, `ingest`, `embed`, `render`, `dlq`).
+  4. **DLQ Inspector & Replay**: Detailed view of unrecoverable errors with categorized tags (`HTTP_STATUS_429`, `TIMEOUT`, `PARSER_FAILURE`), stack trace viewer, and 1-click re-enqueueing into `sift-fetch`.
+  5. **Autonomous Agent Trace Inspector**: Interactive timeline replay for browser agent executions, complete with LLM reasoning thoughts, action arguments, duration, and embedded base64 viewport screenshots, plus JSON export.
+
+### 7.2 Grafana & Prometheus Provisioning (`infra/`)
+- Pre-configured Grafana dashboard JSON (`infra/grafana/dashboards/sift-overview.json`):
+  - Ingestion throughput (Pages/sec by domain and status).
+  - BullMQ queue depths over time.
+  - DLQ failures broken down by error classification.
+  - Crawl duration percentiles ($p_{95}, p_{99}$).
+  - Search query latencies ($p_{95}$) segmented by retrieval mode and pipeline stage.
+  - Node.js heap memory utilization and event loop metrics.
+- Automated datasource and dashboard provisioning via YAML configs in `infra/grafana/provisioning/`.
+
+### 7.3 Architectural Records & Query Execution Verification (`docs/`)
+- **System Architecture** (`docs/architecture.md`): Full Mermaid sequence and topology diagrams for crawler, ingestion, search, and agent subsystems.
+- **Architectural Decision Records** (`docs/adr/`):
+  - `001-hybrid-search-rrf.md`: Scale-invariance and robustness of Reciprocal Rank Fusion ($k=60$) over linear normalization.
+  - `002-mongodb-compound-indexing.md`: ESR-compliant compound B-Tree indexing and WiredTiger cache bounds (`--wiredTigerCacheSizeGB 1.5`).
+  - `003-browser-agent-dom-pruning.md`: Semantic DOM pruning with stable numeric `data-sift-id` attributes vs raw accessibility trees (92% token reduction).
+- **MongoDB Query Plan Proofs** (`docs/query-plans.md`): Documented `explain("executionStats")` verifying index-covered scans (`IXSCAN`) and absence of `COLLSCAN`.
+
+---
+
+## 8. Operational Cheat Sheet (CLI & Commands)
 
 All commands are run from the monorepo root:
 
 ```bash
-# 1. Start Infrastructure Services
+# 1. Start Infrastructure Services (MongoDB, Redis Stack, Qdrant, Prometheus, Grafana)
 docker compose -f infra/docker-compose.yml up -d
 
 # 2. Verify Connectivity
 pnpm healthcheck
 
-# 3. Apply MongoDB Indexes (including agent_runs)
+# 3. Apply MongoDB Indexes
 pnpm db:migrate
 
 # 4. Run Complete Test Suite & Typecheck (19 test files, 85 tests passing)
@@ -372,16 +407,24 @@ pnpm bench:query 10000
 pnpm indexer:embed 100              # Embed a batch of 100 documents
 pnpm indexer:start                  # Start continuous embed worker
 
-# 8. Start Hybrid Search API Server (Port 3001)
-pnpm api:start
+# 8. Start Fastify API Gateway (Port 3001)
+pnpm api:start                      # or pnpm api:dev
 
-# 9. Run Autonomous Browser Agent
-pnpm agent:run --url "https://example.com" --goal "Extract page title and main topic"
+# 9. Start Modern Search & Observability UI (Port 5173)
+pnpm web:dev                        # Launches Vite dev server with proxy to API
+pnpm web:build                      # Production build: tsc -b && vite build
 
-# 10. Start Interactive Agent Trace Viewer (Port 3005)
-pnpm agent:viewer --port 3005
+# 10. Access Observability Dashboards
+# - Web UI: http://localhost:5173
+# - Grafana Dashboard: http://localhost:3002 (admin/admin)
+# - Prometheus Metrics: http://localhost:9090
+# - RedisInsight: http://localhost:8001
 
-# 11. Run 10-Scenario Browser Agent Verification Suite
+# 11. Run Autonomous Browser Agent
+pnpm agent:run --url "https://books.toscrape.com" --goal "Extract book title and price"
+
+# 12. Run 10-Scenario Browser Agent Verification Suite
 npx tsx scripts/verify-agent.ts
 ```
+
 

@@ -28,7 +28,9 @@
     "api:start": "pnpm --filter @sift/api start",
     "api:dev": "pnpm --filter @sift/api dev",
     "agent:run": "tsx apps/agent/src/index.ts run",
-    "agent:viewer": "tsx apps/agent/src/index.ts viewer"
+    "agent:viewer": "tsx apps/agent/src/index.ts viewer",
+    "web:dev": "pnpm --filter @sift/web dev",
+    "web:build": "pnpm --filter @sift/web build"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

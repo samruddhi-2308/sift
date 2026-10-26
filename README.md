@@ -267,10 +267,51 @@ pnpm healthcheck
 # Apply compound & unique indexes to MongoDB
 pnpm db:migrate
 
-# Run unit test suite (42 tests)
+# Run unit test suite (19 test files, 85 tests passing)
 pnpm test
 
 # Typecheck all packages & apps
 pnpm typecheck
 ```
+
+---
+
+## Web UI & Observability (Phase 7)
+
+Sift includes a modern, high-performance web interface built with React 18, Vite 6, and custom glassmorphism styles:
+
+### Starting the Web UI
+```bash
+# Start API gateway backend (port 3001)
+pnpm api:start
+
+# In another terminal, start Vite development server (port 5173)
+pnpm web:dev
+
+# Or build the production web bundle
+pnpm web:build
+```
+
+### Web Interface Views:
+- **Search View** (`http://localhost:5173`): Interactive query bar with `/` keyboard focus, mode switcher (`Hybrid + Re-rank`, `Hybrid RRF`, `Vector`, `Keyword`), domain filters, highlighted snippet marks, and per-stage latency breakdown (`embed`, `keyword`, `vector`, `fusion`, `rerank`).
+- **4-Way Compare View**: Real-time side-by-side comparison across all four retrieval engines with candidate overlap indicators (`Universal`, `Shared`, `Unique`).
+- **Admin & Telemetry Dashboard**: Live cluster health, MongoDB corpus size, Qdrant vector count, memory usage, and BullMQ queue gauges across `fetch`, `parse`, `ingest`, `embed`, `render`, and `dlq`.
+- **Dead Letter Queue (DLQ) Inspector**: Inspect unrecoverable failures, stack traces, and execute 1-click re-enqueueing back into the crawl pipeline.
+- **Agent Trace Inspector**: Step-by-step browser replay with planner reasoning, action parameters, execution duration, and full-resolution viewport screenshots.
+
+### Grafana & Infrastructure Dashboards:
+- **Grafana**: `http://localhost:3002` (login: `admin` / `admin`)
+  - Pre-provisioned `Sift Overview & Pipeline Telemetry` dashboard (`infra/grafana/dashboards/sift-overview.json`).
+- **Prometheus**: `http://localhost:9090` (live metrics scraper).
+- **RedisInsight**: `http://localhost:8001` (Redis queue & Bloom filter visualizer).
+
+---
+
+## Documentation & Architecture:
+- [System Architecture](file:///docs/architecture.md): Complete system overview with Mermaid sequence and component diagrams.
+- [ADR 001: Reciprocal Rank Fusion](file:///docs/adr/001-hybrid-search-rrf.md): Architectural decision on RRF vs linear normalization.
+- [ADR 002: MongoDB Compound Indexing](file:///docs/adr/002-mongodb-compound-indexing.md): ESR index design and WiredTiger cache control.
+- [ADR 003: Semantic DOM Pruning](file:///docs/adr/003-browser-agent-dom-pruning.md): `data-sift-id` numeric tagging and 92% token reduction.
+- [MongoDB Query Execution Plans](file:///docs/query-plans.md): Verified `IXSCAN` and covered query proofs.
+
 
