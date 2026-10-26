@@ -72,8 +72,8 @@ sift/
 | --- | --- | --- |
 | **Phase 0** | **Foundations (Monorepo, Docker Compose, @sift/core, @sift/db, Healthcheck)** | **✅ Completed** |
 | **Phase 1** | **Crawler Core (robots.txt, token bucket politeness, Bloom dedupe, DLQ)** | **✅ Completed** |
-| **Phase 2** | Storage & Bulk Ingestion (batches 500-1000, streaming WET/dump importers) | 🔄 Next |
-| **Phase 3** | Chunking, Embeddings & Qdrant Indexing (HNSW, title-prepending) | ⏳ Queued |
+| **Phase 2** | **Storage & Bulk Ingestion (batches 500-1000, streaming WET/dump importers)** | **✅ Completed** |
+| **Phase 3** | Chunking, Embeddings & Qdrant Indexing (HNSW, title-prepending) | 🔄 Next |
 | **Phase 4** | Hybrid Search API (Mongo keyword + Qdrant vector + RRF + Re-ranking) | ⏳ Queued |
 | **Phase 5** | Playwright Browser Agent (a11y tree, Observe-Decide-Act, schema extraction) | ⏳ Queued |
 | **Phase 6** | Evals & Benchmarks (nDCG@10, MRR, 100-task agent eval, p95 latencies) | ⏳ Queued |
@@ -81,7 +81,46 @@ sift/
 
 ---
 
+## Storage & Bulk Ingestion Architecture (Phase 2)
+
+* **High-Throughput Batch Ingestion** (`apps/indexer/src/ingest-worker.ts`):
+  * Unordered `bulkWrite` with `updateOne` upserts keyed on unique `urlHash`.
+  * Dual-flush threshold: flushes immediately upon reaching 1,000 documents or 2,000 ms elapsed time.
+  * Stored text truncated to max 50,000 characters to prevent WiredTiger memory bloat.
+  * Bidirectional queue backpressure: pauses upstream fetcher if ingest queue exceeds 10,000 jobs; auto-resumes once cleared below 2,000 jobs.
+* **Streaming Public Archive Importers** (`packages/db/src/importers/`):
+  * **Wikipedia Stream Importer**: Streams XML or JSONL exports line-by-line with $O(1)$ constant memory (<50MB RAM).
+  * **Common Crawl WET Importer**: Parses WARC text segments directly from `.wet` / `.wet.gz` archives.
+  * **Synthetic Corpus Generator**: Generates 10k to 2M+ structured technical engineering articles at >20,000 docs/sec directly into MongoDB.
+* **Benchmarking Harnesses**:
+  * `bench/ingest.ts`: Measures ingest throughput (docs/sec), batch write latencies, and RAM footprint across 100k, 500k, 1M, and 2M document scales.
+  * `bench/query.ts`: Measures p50, p95, and p99 query latency over 10,000 iterations for hot queries and verifies `IXSCAN` plans without `COLLSCAN`.
+
+### Importer & Benchmark Commands
+```bash
+# Start the bulk indexer worker
+pnpm indexer:start
+
+# Ingest synthetic documents for local scaling (e.g. 100k or 2M)
+pnpm import:synthetic 100000
+
+# Stream import Wikipedia dump
+pnpm import:wiki ./data/dumps/enwiki-latest.jsonl.gz
+
+# Stream import Common Crawl WET segment
+pnpm import:wet ./data/dumps/crawl.wet.gz
+
+# Run Ingestion Throughput Benchmark
+pnpm bench:ingest 100000
+
+# Run Query Latency & Explain Plan Benchmark (10,000 iterations)
+pnpm bench:query 10000
+```
+
+---
+
 ## Crawler Usage & CLI (Phase 1)
+
 
 The distributed crawler (`apps/crawler`) implements production politeness and fault tolerance:
 * **RFC 3986 URL Normalizer**: Strips marketing/tracking query parameters (`utm_*`, `fbclid`, `gclid`), sorts query params, resolves relative links, and generates a deterministic 64-bit `urlHash`.

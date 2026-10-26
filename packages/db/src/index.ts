@@ -4,3 +4,7 @@ export * from './indexes.js';
 export * from './repositories/document.repository.js';
 export * from './repositories/frontier.repository.js';
 export * from './repositories/dlq.repository.js';
+export * from './importers/types.js';
+export * from './importers/wikipedia-importer.js';
+export * from './importers/commoncrawl-importer.js';
+export * from './importers/synthetic-corpus.js';

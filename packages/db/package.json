@@ -18,7 +18,9 @@
   },
   "dependencies": {
     "@sift/core": "workspace:*",
-    "mongodb": "^6.12.0"
+    "commander": "^13.1.0",
+    "mongodb": "^6.12.0",
+    "tldts": "^6.1.77"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
