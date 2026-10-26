@@ -243,35 +243,103 @@ Every component built so far is covered by automated unit and integration tests.
 
 ---
 
-## 6. Roadmap: What Comes Next (Phase 5 – 7)
+## 6. Phase 5: Autonomous Playwright Browser Agent
 
 ```
-[Phase 0: Done] -> [Phase 1: Done] -> [Phase 2: Done] -> [Phase 3: Done] -> [Phase 4: Done]
-                                                                                  │
-                                                                                  ▼
-                                                                      [Phase 5: Browser Agent]
-                                                                                  │
-                                                                                  ▼
-                                                                      [Phase 6: Evals & Benchmarks]
-                                                                                  │
-                                                                                  ▼
-                                                                      [Phase 7: Modern UI & Dashboards]
+[Phase 0: Done] -> [Phase 1: Done] -> [Phase 2: Done] -> [Phase 3: Done] -> [Phase 4: Done] -> [Phase 5: Done]
+                                                                                                      │
+                                                                                                      ▼
+                                                                                         [Phase 6: Evals & Benchmarks]
+                                                                                                      │
+                                                                                                      ▼
+                                                                                         [Phase 7: Modern UI & Dashboards]
 ```
 
-### Phase 5: Autonomous Browser Agent (Next Phase)
-- Playwright-driven Observe-Decide-Act loop.
-- Pruned DOM & accessibility tree representations for the LLM.
-- Schema-validated structured extraction (e.g. products, prices, papers) with Zod.
+### 6.1 The Core Problem: Why Static Crawlers Fail on the Modern Web
+Standard HTTP crawlers (like `undici` in Phase 1) request an endpoint and receive static HTML. However:
+1. **Single-Page Applications (SPAs)**: Frameworks like React, Next.js, Vue, and Angular often serve an empty shell (`<div id="root"></div>`) and load data asynchronously via client-side JavaScript. Static parsers extract empty text.
+2. **Interactive UI Barriers**: Cookie consent modals, popups, and tabbed navigation block or hide primary content until clicked.
+3. **Infinite Scroll & Dynamic Pagination**: Catalogs, feeds, and job boards require scrolling down or clicking "Load more" to trigger API requests.
+4. **Structured Data Extraction Needs**: Plain text search extracts raw prose, but applications require structured JSON (e.g. `{ name: string, price: number, inStock: boolean }`).
 
-### Phase 6: Evals & Benchmarks
-- Relevance evaluation: nDCG@10, MRR, Recall@50 over a test query set.
-- Comparison: Keyword vs Vector vs Hybrid vs Hybrid + Re-rank.
-- 100-task agent eval benchmark across 20+ websites with failure taxonomy.
+### 6.2 Architecture of the Observe-Decide-Act Loop
 
-### Phase 7: UI, Observability & Polish
-- Modern search UI with stage latency breakdown and side-by-side A/B retrieval comparison.
-- Admin dashboard for queue depths and DLQ replay.
-- Grafana dashboard monitoring crawl rate, ingest throughput, and search latencies.
+```
+                     +---------------------------------------+
+                     |         BrowserSession                |
+                     |  (Playwright Headless Chromium)       |
+                     +-------------------+-------------------+
+                                         │  1. In-browser JS
+                                         ▼
+                     +---------------------------------------+
+                     |          DOM Observer                 |
+                     |  - Prune invisible/noisy elements    |
+                     |  - Assign numeric IDs [1], [2], [3]  |
+                     |  - Tag DOM: data-sift-id="N"         |
+                     |  - Extract text & scroll position    |
+                     +-------------------+-------------------+
+                                         │  2. Pruned Observation
+                                         ▼
++--------------------+---------------------------------------+--------------------+
+|                                AgentPlanner (LLM)                               |
+|                     (Gemini 2.5 Flash / Deterministic Fallback)                 |
+|                                                                                 |
+|  Prompt = Goal + Schema + Pruned Elements [1..N] + Text + Validation Feedback   |
+|  Decide = { thought: "...", action: { name: "click"|"extract", args: {...} } }  |
++--------------------+---------------------------------------+--------------------+
+                     │  3. Structured Action Call
+                     ▼
++--------------------+---------------------------------------+--------------------+
+|                               Action Execution                                  |
+|  click(id)      -> page.locator('[data-sift-id="N"]').click()                   |
+|  type(id, text) -> Security check -> page.fill(...)                             |
+|  scroll(dir)    -> window.scrollBy(0, ±0.75 * innerHeight)                      |
+|  extract(data)  -> SchemaValidator(data, schema)                                |
++---------------------------------------------------------------------------------+
+```
+
+### 6.3 The DOM Pruning Problem: Why Raw HTML is Unacceptable
+Modern web pages frequently have 5,000 to 30,000 DOM nodes. Sending raw HTML to an LLM:
+- **Exceeds Context Windows / Drives High Latency**: Sending 250KB of raw HTML uses 60,000+ tokens per step. At 15 steps, that is 900,000 tokens!
+- **High Financial Cost**: At $0.075/1M tokens, a single task would cost several cents and hit rate limits immediately.
+- **Hallucination Risk**: Large HTML containing SVG paths, inline CSS, minified scripts, and hidden trackers confuses LLM reasoning.
+
+**Sift's Pruning Algorithm** (`apps/agent/src/browser/dom-observer.ts`):
+1. **Interactive Element Filtering**: Scans candidate interactive elements: `a`, `button`, `input`, `select`, `textarea`, `summary`, ARIA roles (`role="button"`, `role="link"`, `role="tab"`), `tabindex="0"`.
+2. **True Geometric Visibility**: Checks `isConnected`, computed styles (`display !== 'none'`, `visibility !== 'hidden'`, `opacity > 0`), and bounding box (`width > 2 && height > 2`).
+3. **Deduplication**: Prunes nested interactive elements (e.g. SVG icons inside buttons).
+4. **Stable Numeric IDs**: Assigns consecutive integer IDs `[1]`, `[2]`, `[3]` and sets `data-sift-id="N"` on live DOM elements. The LLM simply outputs `{"name": "click", "args": {"id": 4}}`. Playwright executes `page.locator('[data-sift-id="4"]').click()`, completely eliminating brittle CSS selectors!
+5. **Contextual Text Summary**: Scans leaf text nodes (`p`, headings, leaf `div`/`span` with classes like `price`, `author`, `stock`, `meta`) and compiles a concise 2,000-character excerpt.
+
+### 6.4 Schema Validation & Feedback-Driven Self-Correction
+When the LLM issues an `extract(data)` action:
+1. `SchemaValidator` validates the payload against the provided Zod schema or JSON Schema.
+2. If valid: The run succeeds immediately!
+3. If invalid: The run does **not** fail. Instead, detailed errors (e.g. `Field "price" must be a number, received string`) are injected into the LLM's prompt in the next observation step:
+   ```
+   CRITICAL: Your previous extraction failed schema validation:
+   - Field "price" must be a number, received string.
+   Please inspect the page content again, correct the data types/keys, and re-extract.
+   ```
+4. The LLM self-corrects and re-extracts (up to 2 retries).
+
+### 6.5 Multi-Layered Security Guardrails (`apps/agent/src/security/guardrails.ts`)
+Autonomous agents with browser access require strict security boundaries:
+1. **SSRF Protection**: Resolves target IP addresses and blocks navigation to private IPv4 ranges (`127.0.0.0/8`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.0.0/16` cloud metadata), IPv6 loopback (`::1`), link-local (`fe80::/10`), unique-local (`fc00::/7`), and local hostnames (`localhost`, `*.internal`).
+2. **Domain Allowlist**: Restricts agent navigation to permitted domains, preventing crawler escapes to untrusted third-party domains.
+3. **Credential & Sensitive Field Blocker**: Inspects target element types and attributes (`type="password"`, `name` or `id` matching `password|passwd|secret|creditcard|cc_num|cvv|cvc|ssn|pin`), throwing `SecurityGuardError` if an action attempts typing into credential fields.
+4. **Download & Dialog Interception**: Disables file downloads (`page.on('download', (d) => d.cancel())`) and automatically dismisses file pickers.
+5. **Budget Watchdog**: Enforces strict step caps (default: 15), token limits (default: 60,000), and wall-clock execution timeouts (default: 120s), stopping runaway loops safely (`budget_exceeded`).
+
+### 6.6 Execution Tracing & Interactive Visual Viewer (`apps/agent/src/viewer/server.ts`)
+- **Persistence**: Every run saves complete trace data to MongoDB `agent_runs` (indexed on `runId` unique and `startedAt: -1`).
+- **Data Captured**: Step numbers, timestamps, target URLs, full observation states, JPEG thumbnail screenshots (base64 data URIs), LLM reasoning thoughts, action parameters, execution results, token usage, and latency.
+- **Trace Viewer UI**: A responsive Fastify dashboard on port `3005` (`http://localhost:3005/traces`) providing an interactive step carousel, screenshot preview, action parameter inspector, and copy-to-clipboard structured JSON output.
+
+### 6.7 Hybrid Crawling Architecture (`apps/crawler/src/workers/render-worker.ts`)
+- The crawler initially fetches pages via fast HTTP (`undici`).
+- If extracted text is below threshold or page contains SPA markers (`<div id="root"></div>`, `<div id="app"></div>`, or `noscript` JS warnings), the page is re-routed to `sift-render` queue.
+- `renderWorker` uses headless Playwright to load the page, wait for JavaScript hydration, extract dynamic HTML, and re-enqueue for parsing with `renderMode: 'rendered'`.
 
 ---
 
@@ -286,10 +354,10 @@ docker compose -f infra/docker-compose.yml up -d
 # 2. Verify Connectivity
 pnpm healthcheck
 
-# 3. Apply MongoDB Indexes
+# 3. Apply MongoDB Indexes (including agent_runs)
 pnpm db:migrate
 
-# 4. Run Test Suite & Typecheck
+# 4. Run Complete Test Suite & Typecheck (19 test files, 85 tests passing)
 pnpm test
 pnpm typecheck
 
@@ -303,4 +371,17 @@ pnpm bench:query 10000
 # 7. Run Vector Indexing Worker
 pnpm indexer:embed 100              # Embed a batch of 100 documents
 pnpm indexer:start                  # Start continuous embed worker
+
+# 8. Start Hybrid Search API Server (Port 3001)
+pnpm api:start
+
+# 9. Run Autonomous Browser Agent
+pnpm agent:run --url "https://example.com" --goal "Extract page title and main topic"
+
+# 10. Start Interactive Agent Trace Viewer (Port 3005)
+pnpm agent:viewer --port 3005
+
+# 11. Run 10-Scenario Browser Agent Verification Suite
+npx tsx scripts/verify-agent.ts
 ```
+

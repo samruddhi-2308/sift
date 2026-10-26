@@ -30,9 +30,17 @@ export interface ParseJobPayload {
   depth: number;
 }
 
+export interface RenderJobPayload {
+  url: string;
+  depth: number;
+  domain: string;
+  retryCount?: number;
+}
+
 export interface IngestJobPayload {
   document: DocumentSchema;
 }
+
 
 export interface EmbedJobPayload {
   urlHash: string;

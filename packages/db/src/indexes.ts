@@ -83,7 +83,21 @@ export const REQUIRED_INDEXES: IndexDefinition[] = [
     options: { name: 'idx_dlq_replay_lookup' },
     description: 'Index for querying un-replayed DLQ jobs by error class',
   },
+  // Agent runs indexes
+  {
+    collection: COLLECTIONS.AGENT_RUNS,
+    spec: { runId: 1 },
+    options: { unique: true, name: 'uniq_agent_run_id' },
+    description: 'Unique index on agent run identifier for fast trace lookup',
+  },
+  {
+    collection: COLLECTIONS.AGENT_RUNS,
+    spec: { startedAt: -1, status: 1 },
+    options: { name: 'idx_agent_runs_recent' },
+    description: 'Index for querying recent agent runs and status',
+  },
 ];
+
 
 export async function createAllIndexes(db: Db): Promise<{ created: string[]; existing: string[] }> {
   const created: string[] = [];

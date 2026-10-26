@@ -26,7 +26,9 @@
     "import:wet": "tsx packages/db/src/importers/cli.ts wet",
     "import:synthetic": "tsx packages/db/src/importers/cli.ts synthetic",
     "api:start": "pnpm --filter @sift/api start",
-    "api:dev": "pnpm --filter @sift/api dev"
+    "api:dev": "pnpm --filter @sift/api dev",
+    "agent:run": "tsx apps/agent/src/index.ts run",
+    "agent:viewer": "tsx apps/agent/src/index.ts viewer"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

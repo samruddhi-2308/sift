@@ -7,6 +7,7 @@ import {
   type FetchJobPayload,
   type ParseJobPayload,
   type IngestJobPayload,
+  type RenderJobPayload,
 } from '@sift/queue';
 import { connectMongo, closeMongo, DLQRepository } from '@sift/db';
 import { createLogger, config } from '@sift/core';
@@ -17,6 +18,7 @@ import { CrawlFrontier } from './frontier/frontier.js';
 import { DLQHandler } from './workers/dlq-handler.js';
 import { createFetchWorker } from './workers/fetch-worker.js';
 import { createParseWorker } from './workers/parse-worker.js';
+import { createRenderWorker } from './workers/render-worker.js';
 
 const logger = createLogger('crawler-service');
 
@@ -25,6 +27,7 @@ export interface CrawlerServiceInstance {
   dlqHandler: DLQHandler;
   fetchWorker: Worker;
   parseWorker: Worker;
+  renderWorker: Worker;
   stop: () => Promise<void>;
 }
 
@@ -39,6 +42,7 @@ export async function startCrawler(): Promise<CrawlerServiceInstance> {
   const fetchQueue = getQueue<FetchJobPayload>(QUEUE_NAMES.FETCH);
   const parseQueue = getQueue<ParseJobPayload>(QUEUE_NAMES.PARSE);
   const ingestQueue = getQueue<IngestJobPayload>(QUEUE_NAMES.INGEST);
+  const renderQueue = getQueue<RenderJobPayload>(QUEUE_NAMES.RENDER);
 
   // 3. Instantiate domain services
   const dedupeFilter = new RedisBloomFilter(redis);
@@ -66,7 +70,14 @@ export async function startCrawler(): Promise<CrawlerServiceInstance> {
     redis,
     frontier,
     ingestQueue,
+    renderQueue,
     concurrency: config.CRAWLER_CONCURRENCY,
+  });
+
+  const renderWorker = createRenderWorker({
+    redis,
+    parseQueue,
+    concurrency: 2,
   });
 
   // 5. Graceful shutdown handler
@@ -76,10 +87,11 @@ export async function startCrawler(): Promise<CrawlerServiceInstance> {
     isStopping = true;
     logger.info('Graceful shutdown initiated: completing in-flight jobs...');
 
-    await Promise.all([fetchWorker.close(), parseWorker.close()]);
+    await Promise.all([fetchWorker.close(), parseWorker.close(), renderWorker.close()]);
     await closeAllQueues();
     await closeMongo();
     await redis.quit();
+
 
     logger.info('Crawler service stopped cleanly');
   };
@@ -97,7 +109,7 @@ export async function startCrawler(): Promise<CrawlerServiceInstance> {
   });
 
   logger.info('Sift crawler service is running and ready for jobs');
-  return { frontier, dlqHandler, fetchWorker, parseWorker, stop };
+  return { frontier, dlqHandler, fetchWorker, parseWorker, renderWorker, stop };
 }
 
 import { fileURLToPath } from 'node:url';

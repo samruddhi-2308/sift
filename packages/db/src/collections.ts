@@ -1,5 +1,10 @@
 import type { Collection, Db } from 'mongodb';
-import type { DocumentSchema, FrontierDomainState, DLQJobRecord } from '@sift/core';
+import type {
+  DocumentSchema,
+  FrontierDomainState,
+  DLQJobRecord,
+  AgentRunRecord,
+} from '@sift/core';
 
 export const COLLECTIONS = {
   DOCUMENTS: 'documents',
@@ -21,3 +26,8 @@ export function getFrontierCollection(db: Db): Collection<FrontierDomainState> {
 export function getDLQCollection(db: Db): Collection<DLQJobRecord> {
   return db.collection<DLQJobRecord>(COLLECTIONS.DLQ_JOBS);
 }
+
+export function getAgentRunsCollection(db: Db): Collection<AgentRunRecord> {
+  return db.collection<AgentRunRecord>(COLLECTIONS.AGENT_RUNS);
+}
+

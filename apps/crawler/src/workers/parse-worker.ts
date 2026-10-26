@@ -6,6 +6,7 @@ import {
   QUEUE_NAMES,
   type ParseJobPayload,
   type IngestJobPayload,
+  type RenderJobPayload,
 } from '@sift/queue';
 import { HtmlParser } from '../parser/html-parser.js';
 import type { CrawlFrontier } from '../frontier/frontier.js';
@@ -18,6 +19,7 @@ export interface ParseWorkerDependencies {
   redis: Redis;
   frontier: CrawlFrontier;
   ingestQueue: Queue<IngestJobPayload>;
+  renderQueue?: Queue<RenderJobPayload>;
   concurrency?: number;
 }
 
@@ -27,11 +29,22 @@ export function createParseWorker(deps: ParseWorkerDependencies): Worker<ParseJo
   const worker = new Worker<ParseJobPayload>(
     QUEUE_NAMES.PARSE,
     async (job: Job<ParseJobPayload>) => {
-      const { url, html, httpStatus, fetchedAt, depth, domain } = job.data;
+      const { url, html, httpStatus, fetchedAt, depth, domain, renderMode } = job.data;
       logger.info({ url, depth }, 'Starting parse job');
 
       const parsed = parser.parse(html, url);
       const urlHash = computeUrlHash(url);
+
+      // Re-route SPA pages to Playwright render worker if static content was inadequate
+      if (parsed.needsJsRendering && renderMode !== 'rendered' && deps.renderQueue) {
+        logger.info({ url }, 'Page requires JS rendering; re-routing to render queue');
+        await deps.renderQueue.add(
+          'render-spa',
+          { url, depth, domain },
+          { jobId: `render-${urlHash}`, removeOnComplete: true }
+        );
+        return;
+      }
 
       // 1. Prepare structured Document for ingestion
       const document: DocumentSchema = {

@@ -75,9 +75,41 @@ sift/
 | **Phase 2** | **Storage & Bulk Ingestion (batches 500-1000, streaming WET/dump importers)** | **✅ Completed** |
 | **Phase 3** | **Chunking, Embeddings & Qdrant Indexing (HNSW, title-prepending)** | **✅ Completed** |
 | **Phase 4** | **Hybrid Search API (Mongo keyword + Qdrant vector + RRF + Re-ranking)** | **✅ Completed** |
-| **Phase 5** | Playwright Browser Agent (a11y tree, Observe-Decide-Act, schema extraction) | 🔄 Next |
-| **Phase 6** | Evals & Benchmarks (nDCG@10, MRR, 100-task agent eval, p95 latencies) | ⏳ Queued |
+| **Phase 5** | **Playwright Browser Agent (a11y tree, Observe-Decide-Act, schema extraction)** | **✅ Completed** |
+| **Phase 6** | Relevance & Agent Evaluation Benchmarks (nDCG@10, MRR, 100-task agent eval) | 🔄 Next |
 | **Phase 7** | Modern Search UI, A/B Retrieval Inspector & Observability | ⏳ Queued |
+
+---
+
+## Playwright LLM Browser Agent (Phase 5)
+
+* **Autonomous Observe-Decide-Act Loop** (`apps/agent/src/runner.ts`):
+  * **Observation Generation** (`apps/agent/src/browser/dom-observer.ts`): Instead of massive raw HTML (which blows context budgets and costs dollars per run), Sift extracts a pruned accessibility representation. It maps visible interactive elements to stable numeric IDs (`[1]`, `[2]`, `[3]`), marks the live DOM with `data-sift-id="N"`, extracts contextual body paragraphs, and summarizes page state.
+  * **Auto-Dismissing Cookie Banners**: Detects and auto-dismisses cookie and consent modals (matching "Accept all", "Agree", "Allow all") on navigation.
+  * **Action Tool Execution** (`apps/agent/src/browser/browser-session.ts`): Direct function execution via Playwright Chromium: `click(id)`, `type(id, text)`, `scroll(direction)`, `wait_for(target)`, `go_back()`, `extract(data)`, `finish(reason)`.
+  * **Schema Validation & Feedback Loop** (`apps/agent/src/validation/schema-validator.ts`): Validates extracted JSON against Zod schemas or JSON Schema definitions. On validation errors, feeds detailed diagnostic error messages back to the agent for self-correction (up to 2 retries).
+* **Multi-Layered Security Guardrails** (`apps/agent/src/security/guardrails.ts`):
+  * **SSRF Protection**: Blocks navigation to private IPv4 (`127.0.0.0/8`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.0.0/16`) and IPv6 loopback/link-local addresses, and blocks `localhost`/internal domains.
+  * **Domain Allowlist**: Prevents agent runaway across untrusted external third-party sites.
+  * **Credential Blocker**: Detects password inputs, credit cards, CVV, and PIN fields, throwing `SecurityGuardError` if an action attempts typing into sensitive credentials.
+  * **Budget Watchdog**: Enforces strict step caps (default: 15), token limits (default: 60,000), and wall-clock execution timeouts (default: 2 minutes).
+* **Execution Tracing & Interactive Visual Viewer** (`apps/agent/src/viewer/server.ts`):
+  * **Persistence**: Every run stores step-by-step screenshots (base64 JPEG thumbnails), agent reasoning thoughts, actions, observation DOM trees, tokens, and duration into MongoDB `agent_runs`.
+  * **Trace Viewer**: Fastify web dashboard on port `3005` (`GET /traces`, `GET /traces/:id`) with step carousel, screenshot preview, and copy-to-clipboard structured JSON output.
+* **Hybrid Crawler Integration** (`apps/crawler/src/workers/render-worker.ts`):
+  * Detects SPA pages (empty root `#root`, `#app`, `#_next` or `noscript` JS warnings) during static crawling and automatically re-routes to a headless Playwright render worker, saving documents with `renderMode: 'rendered'`.
+
+### Browser Agent Commands
+```bash
+# Run autonomous extraction agent via CLI
+pnpm agent:run --url "https://example.com/product" --goal "Extract product name and price"
+
+# Start the interactive visual trace viewer
+pnpm agent:viewer --port 3005
+
+# Run 10-scenario agent verification suite
+npx tsx scripts/verify-agent.ts
+```
 
 ---
 
