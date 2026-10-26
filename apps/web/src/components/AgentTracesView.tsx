@@ -47,11 +47,16 @@ export const AgentTracesView: React.FC = () => {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
-          <h2 style={{ fontSize: '1.4rem', fontWeight: 700, margin: 0 }}>🤖 Autonomous Agent Trace Inspector</h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: '0.25rem 0 0' }}>
-            Replay agent step-by-step reasoning, DOM snapshots, action logs, and screenshot artifacts.
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
+            <span className="badge badge-purple">AUTONOMOUS AGENT REPLAY</span>
+          </div>
+          <h2 style={{ fontSize: '1.75rem', fontWeight: 800, margin: 0 }}>
+            Browser Agent Trace Inspector
+          </h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: '0.25rem 0 0' }}>
+            Replay agent step-by-step reasoning, DOM snapshots, action payloads, and viewport screenshot artifacts.
           </p>
         </div>
 
@@ -61,35 +66,36 @@ export const AgentTracesView: React.FC = () => {
       </div>
 
       {error && (
-        <div className="card" style={{ borderLeft: '4px solid var(--accent-red)', marginBottom: '1.5rem' }}>
-          <span style={{ color: 'var(--accent-red)', fontWeight: 600 }}>Error: </span>
+        <div className="card" style={{ borderLeft: '4px solid var(--accent-rose)', marginBottom: '1.5rem' }}>
+          <strong style={{ color: 'var(--accent-rose)' }}>Trace Error: </strong>
           <span>{error}</span>
         </div>
       )}
 
       {loading && traces.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '3rem 0' }}>
-          <div className="status-indicator active" style={{ width: '14px', height: '14px', margin: '0 auto 1rem' }} />
-          <p style={{ color: 'var(--text-muted)' }}>Retrieving agent trajectory runs from trace repository...</p>
+        <div className="empty-state">
+          <div className="pulse-dot" style={{ width: '16px', height: '16px', margin: '0 auto 1.5rem' }} />
+          <h3>Retrieving agent trajectory runs from trace repository...</h3>
+          <p>Connecting to MongoDB collection agent_runs.</p>
         </div>
       )}
 
       {traces.length === 0 && !loading && (
-        <div className="card empty-state">
-          <span className="empty-state-icon">🤖</span>
-          <h3>No Agent Traces Found</h3>
-          <p>Run autonomous browser tasks using the CLI or agent scripts to populate interactive traces.</p>
+        <div className="empty-state glass-panel">
+          <div className="empty-icon">🤖</div>
+          <h3>No Agent Traces Recorded Yet</h3>
+          <p>Run autonomous browser tasks using the CLI (e.g. <code>pnpm agent:run</code>) to generate interactive traces.</p>
         </div>
       )}
 
       {traces.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '1.5rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: '1.5rem' }}>
           {/* Traces Sidebar */}
-          <div className="card" style={{ padding: '1rem', maxHeight: '780px', overflowY: 'auto' }}>
-            <h3 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+          <div className="card" style={{ padding: '1.25rem', maxHeight: '780px', overflowY: 'auto' }}>
+            <h3 style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.85rem', textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>
               Execution Sessions ({traces.length})
             </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
               {traces.map((t: AgentTraceItem) => {
                 const isSelected = selectedTrace?.runId === t.runId;
                 return (
@@ -100,26 +106,27 @@ export const AgentTracesView: React.FC = () => {
                       setActiveStepIndex(0);
                     }}
                     style={{
-                      padding: '0.75rem',
-                      borderRadius: '8px',
+                      padding: '0.85rem 1rem',
+                      borderRadius: '12px',
                       cursor: 'pointer',
-                      background: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'var(--bg-input)',
-                      border: isSelected ? '1px solid var(--accent-primary)' : '1px solid transparent',
+                      background: isSelected ? 'rgba(56, 189, 248, 0.12)' : 'rgba(255, 255, 255, 0.03)',
+                      border: isSelected ? '1px solid var(--accent-cyan)' : '1px solid var(--border-subtle)',
+                      boxShadow: isSelected ? '0 0 15px rgba(56, 189, 248, 0.15)' : 'none',
                       transition: 'all 0.2s',
                     }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
                       <span className={`badge ${t.status === 'success' ? 'badge-success' : 'badge-error'}`}>
                         {t.status.toUpperCase()}
                       </span>
-                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                         {t.steps ? `${t.steps.length} steps` : '0 steps'}
                       </span>
                     </div>
-                    <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '0.25rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontSize: '0.86rem', fontWeight: 700, color: '#fff', marginBottom: '0.35rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {t.goal}
                     </div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                       {new Date(t.startedAt).toLocaleString()}
                     </div>
                   </div>
@@ -139,18 +146,18 @@ export const AgentTracesView: React.FC = () => {
                       <span className={`badge ${selectedTrace.status === 'success' ? 'badge-success' : 'badge-error'}`}>
                         {selectedTrace.status.toUpperCase()}
                       </span>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem', color: 'var(--accent-cyan)' }}>
                         Run ID: {selectedTrace.runId}
                       </span>
                     </div>
-                    <h3 style={{ fontSize: '1.15rem', fontWeight: 600, margin: '0 0 0.5rem' }}>
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: '0 0 0.5rem' }}>
                       {selectedTrace.goal}
                     </h3>
-                    <div style={{ display: 'flex', gap: '1.25rem', fontSize: '0.8rem', color: 'var(--text-muted)', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: '1.25rem', fontSize: '0.82rem', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
                       <span>🌐 Target: <strong style={{ color: 'var(--accent-cyan)' }}>{selectedTrace.url}</strong></span>
-                      <span>⏱️ Duration: {selectedTrace.durationMs ? `${(selectedTrace.durationMs / 1000).toFixed(2)}s` : 'N/A'}</span>
-                      <span>🔢 Tokens: {selectedTrace.totalTokens ?? 0}</span>
-                      <span>💰 Cost: ${selectedTrace.estimatedCostUsd ? selectedTrace.estimatedCostUsd.toFixed(5) : '0.00000'}</span>
+                      <span>⏱️ Duration: <strong>{selectedTrace.durationMs ? `${(selectedTrace.durationMs / 1000).toFixed(2)}s` : 'N/A'}</strong></span>
+                      <span>🔢 Tokens: <strong>{selectedTrace.totalTokens ?? 0}</strong></span>
+                      <span>💰 Cost: <strong>${selectedTrace.estimatedCostUsd ? selectedTrace.estimatedCostUsd.toFixed(5) : '0.00000'}</strong></span>
                     </div>
                   </div>
 
@@ -166,11 +173,11 @@ export const AgentTracesView: React.FC = () => {
               {/* Step Carousel / Navigation */}
               {selectedTrace.steps && selectedTrace.steps.length > 0 && (
                 <div className="card">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>Step Timeline</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '0.85rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                      <span style={{ fontWeight: 700, fontSize: '1rem' }}>Step Timeline</span>
                       <span className="badge badge-purple">
-                        {activeStepIndex + 1} of {selectedTrace.steps.length}
+                        Step {activeStepIndex + 1} of {selectedTrace.steps.length}
                       </span>
                     </div>
 
@@ -179,34 +186,35 @@ export const AgentTracesView: React.FC = () => {
                         className="btn btn-secondary"
                         disabled={activeStepIndex === 0}
                         onClick={() => setActiveStepIndex((prev) => Math.max(0, prev - 1))}
-                        style={{ padding: '4px 10px', fontSize: '0.8rem' }}
+                        style={{ padding: '0.4rem 0.85rem', fontSize: '0.8rem' }}
                       >
-                        ◀ Previous Step
+                        ◀ Previous
                       </button>
                       <button
                         className="btn btn-secondary"
                         disabled={activeStepIndex === selectedTrace.steps.length - 1}
-                        onClick={() => setActiveStepIndex((prev) => Math.min(selectedTrace.steps.length - 1, prev + 1))}
-                        style={{ padding: '4px 10px', fontSize: '0.8rem' }}
+                        onClick={() => setActiveStepIndex((prev) => Math.min(selectedTrace.steps!.length - 1, prev + 1))}
+                        style={{ padding: '0.4rem 0.85rem', fontSize: '0.8rem' }}
                       >
-                        Next Step ▶
+                        Next ▶
                       </button>
                     </div>
                   </div>
 
                   {/* Step Selector Pills */}
-                  <div style={{ display: 'flex', gap: '0.4rem', overflowX: 'auto', paddingBottom: '0.75rem', marginBottom: '1rem' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.75rem', marginBottom: '1.25rem' }}>
                     {selectedTrace.steps.map((st: AgentStepRecord, i: number) => (
                       <button
                         key={i}
                         onClick={() => setActiveStepIndex(i)}
                         className="btn"
                         style={{
-                          padding: '4px 8px',
-                          fontSize: '0.75rem',
-                          background: activeStepIndex === i ? 'var(--accent-primary)' : 'var(--bg-input)',
-                          color: activeStepIndex === i ? '#fff' : 'var(--text-muted)',
-                          border: 'none',
+                          padding: '0.4rem 0.85rem',
+                          fontSize: '0.78rem',
+                          background: activeStepIndex === i ? 'var(--accent-indigo)' : 'rgba(255, 255, 255, 0.05)',
+                          color: activeStepIndex === i ? '#fff' : 'var(--text-secondary)',
+                          border: activeStepIndex === i ? '1px solid rgba(99, 102, 241, 0.5)' : '1px solid var(--border-subtle)',
+                          boxShadow: activeStepIndex === i ? '0 0 12px rgba(99, 102, 241, 0.35)' : 'none',
                           whiteSpace: 'nowrap',
                         }}
                       >
@@ -217,21 +225,21 @@ export const AgentTracesView: React.FC = () => {
 
                   {/* Current Step Content */}
                   {currentStep && (
-                    <div style={{ display: 'grid', gridTemplateColumns: currentStep.screenshotBase64 ? '1fr 1fr' : '1fr', gap: '1.25rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: currentStep.screenshotBase64 ? '1fr 1fr' : '1fr', gap: '1.5rem' }}>
                       <div>
                         <div style={{ marginBottom: '1rem' }}>
                           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                             Action Executed
                           </span>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
-                            <span className="badge badge-primary" style={{ fontSize: '0.85rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginTop: '0.35rem' }}>
+                            <span className="badge badge-primary" style={{ fontSize: '0.9rem', padding: '4px 10px' }}>
                               {currentStep.action?.name ? currentStep.action.name.toUpperCase() : 'ACTION'}
                             </span>
-                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                              Duration: {currentStep.durationMs ? `${currentStep.durationMs}ms` : 'N/A'}
+                            <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                              Duration: <strong>{currentStep.durationMs ? `${currentStep.durationMs}ms` : 'N/A'}</strong>
                             </span>
                             <span className={`badge ${currentStep.actionResult?.success ? 'badge-success' : 'badge-error'}`}>
-                              {currentStep.actionResult?.success ? 'Success' : 'Failed'}
+                              {currentStep.actionResult?.success ? 'Executed Successfully' : 'Action Failed'}
                             </span>
                           </div>
                         </div>
@@ -243,14 +251,14 @@ export const AgentTracesView: React.FC = () => {
                             </span>
                             <div
                               style={{
-                                background: 'rgba(59, 130, 246, 0.08)',
-                                borderLeft: '3px solid var(--accent-primary)',
-                                padding: '0.75rem',
-                                borderRadius: '4px',
-                                fontSize: '0.82rem',
-                                marginTop: '0.25rem',
-                                color: 'var(--text-main)',
-                                lineHeight: 1.5,
+                                background: 'rgba(56, 189, 248, 0.08)',
+                                borderLeft: '3px solid var(--accent-cyan)',
+                                padding: '0.85rem 1rem',
+                                borderRadius: '8px',
+                                fontSize: '0.88rem',
+                                marginTop: '0.35rem',
+                                color: '#f1f5f9',
+                                lineHeight: 1.6,
                               }}
                             >
                               💭 {currentStep.action.thought}
@@ -260,18 +268,20 @@ export const AgentTracesView: React.FC = () => {
 
                         <div>
                           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                            Parameters & Payloads
+                            Action Parameters & Payloads
                           </span>
                           <pre
                             style={{
-                              background: 'var(--bg-input)',
-                              padding: '0.75rem',
-                              borderRadius: '6px',
-                              fontSize: '0.75rem',
+                              background: 'rgba(5, 8, 20, 0.85)',
+                              padding: '1rem',
+                              borderRadius: '10px',
+                              fontSize: '0.78rem',
                               fontFamily: 'var(--font-mono)',
                               maxHeight: '220px',
                               overflowY: 'auto',
-                              marginTop: '0.25rem',
+                              marginTop: '0.35rem',
+                              border: '1px solid var(--border-subtle)',
+                              color: '#cbd5e1',
                             }}
                           >
                             {JSON.stringify(currentStep.action.args, null, 2)}
@@ -283,15 +293,16 @@ export const AgentTracesView: React.FC = () => {
                       {currentStep.screenshotBase64 && (
                         <div>
                           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                            Page Viewport Snapshot
+                            Live Page Viewport Snapshot
                           </span>
                           <div
                             style={{
-                              marginTop: '0.25rem',
-                              border: '1px solid var(--border-color)',
-                              borderRadius: '8px',
+                              marginTop: '0.35rem',
+                              border: '1px solid rgba(56, 189, 248, 0.3)',
+                              borderRadius: '12px',
                               overflow: 'hidden',
                               background: '#000',
+                              boxShadow: '0 8px 25px rgba(0, 0, 0, 0.6)',
                             }}
                           >
                             <img

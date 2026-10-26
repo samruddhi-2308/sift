@@ -19,9 +19,14 @@ function normalizeL2(vector: number[]): number[] {
  */
 export class LocalDeterministicEmbeddingProvider implements EmbeddingProvider {
   readonly name = 'local-deterministic';
-  readonly model = 'local-bge-384';
-  readonly dimension = 384;
+  readonly model: string;
+  readonly dimension: number;
   readonly version = 1;
+
+  constructor(dimension = 768) {
+    this.dimension = dimension;
+    this.model = `local-bge-${dimension}`;
+  }
 
   async embed(texts: string[]): Promise<number[][]> {
     return texts.map((t) => this.generateVector(t));

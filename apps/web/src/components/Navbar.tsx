@@ -10,57 +10,55 @@ interface NavbarProps {
 
 export const Navbar: React.FC<NavbarProps> = ({ currentTab, onTabChange, systemHealth }) => {
   return (
-    <header className="navbar">
-      <div className="navbar-brand" onClick={() => onTabChange('search')} style={{ cursor: 'pointer' }}>
-        <div className="navbar-logo">⚡</div>
-        <div>
-          <span className="navbar-title">SIFT</span>
-          <span className="navbar-badge">v1.0 • OBSERVER</span>
+    <header className="app-header">
+      <div className="logo-group" onClick={() => onTabChange('search')}>
+        <div className="logo-icon">⚡</div>
+        <div className="logo-text">
+          SIFT
+          <span className="logo-badge">ENTERPRISE</span>
         </div>
       </div>
 
-      <nav className="navbar-nav">
+      <nav className="nav-tabs">
         <button
-          className={`nav-btn ${currentTab === 'search' ? 'active' : ''}`}
+          className={`nav-tab-btn ${currentTab === 'search' ? 'active' : ''}`}
           onClick={() => onTabChange('search')}
         >
-          🔍 Search
+          <span>🔍</span> Search Engine
         </button>
         <button
-          className={`nav-btn ${currentTab === 'compare' ? 'active' : ''}`}
+          className={`nav-tab-btn ${currentTab === 'compare' ? 'active' : ''}`}
           onClick={() => onTabChange('compare')}
         >
-          ⚖️ Compare (4-Way)
+          <span>⚖️</span> 4-Way Compare
         </button>
         <button
-          className={`nav-btn ${currentTab === 'admin' ? 'active' : ''}`}
+          className={`nav-tab-btn ${currentTab === 'admin' ? 'active' : ''}`}
           onClick={() => onTabChange('admin')}
         >
-          📊 Admin & Queues
+          <span>📊</span> Telemetry & Queues
         </button>
         <button
-          className={`nav-btn ${currentTab === 'dlq' ? 'active' : ''}`}
+          className={`nav-tab-btn ${currentTab === 'dlq' ? 'active' : ''}`}
           onClick={() => onTabChange('dlq')}
         >
-          ⚠️ DLQ Browser
+          <span>⚠️</span> DLQ Triage
         </button>
         <button
-          className={`nav-btn ${currentTab === 'traces' ? 'active' : ''}`}
+          className={`nav-tab-btn ${currentTab === 'traces' ? 'active' : ''}`}
           onClick={() => onTabChange('traces')}
         >
-          🤖 Agent Traces
+          <span>🤖</span> Agent Traces
         </button>
       </nav>
 
-      <div className="navbar-status">
-        <span
-          className={`status-indicator ${
-            systemHealth === 'healthy' ? 'healthy' : systemHealth === 'degraded' ? 'error' : ''
-          }`}
-        />
-        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-          {systemHealth === 'healthy' ? 'Cluster Active' : systemHealth === 'degraded' ? 'Degraded' : 'Connecting...'}
-        </span>
+      <div className="header-status">
+        <div className={`live-badge ${systemHealth === 'degraded' ? 'degraded' : ''}`}>
+          <div className="pulse-dot" />
+          <span>
+            {systemHealth === 'healthy' ? 'Cluster Active' : systemHealth === 'degraded' ? 'Degraded' : 'Connecting...'}
+          </span>
+        </div>
       </div>
     </header>
   );

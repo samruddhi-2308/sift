@@ -171,7 +171,7 @@ export class HybridSearchService {
       logger.warn({ reason: vecReason }, 'Vector leg degraded');
     }
 
-    if (keywordCandidates.length === 0 && vectorCandidates.length === 0 && degraded) {
+    if (kwResult.status === 'rejected' && vecResult.status === 'rejected') {
       searchQueriesTotal.inc({ mode, status: 'error' });
       throw new Error(`Both retrieval legs failed: ${degradationReason}`);
     }

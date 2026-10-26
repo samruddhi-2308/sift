@@ -44,43 +44,49 @@ export const AdminView: React.FC = () => {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
-          <h2 style={{ fontSize: '1.4rem', fontWeight: 700, margin: 0 }}>📊 Cluster Metrics & Queue Telemetry</h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: '0.25rem 0 0' }}>
-            Live status of BullMQ ingestion pipelines, MongoDB index cardinality, and Qdrant vector storage.
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
+            <span className="badge badge-primary">OBSERVABILITY & METRICS</span>
+          </div>
+          <h2 style={{ fontSize: '1.75rem', fontWeight: 800, margin: 0 }}>
+            Cluster Telemetry & Ingestion Queues
+          </h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: '0.25rem 0 0' }}>
+            Real-time telemetry across BullMQ ingestion pipelines, MongoDB index cardinality, and Qdrant vector index.
           </p>
         </div>
 
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
           <button
             className={`btn ${autoRefresh ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ fontSize: '0.8rem', padding: '6px 12px' }}
+            style={{ fontSize: '0.82rem', padding: '0.5rem 1rem' }}
             onClick={() => setAutoRefresh(!autoRefresh)}
           >
             {autoRefresh ? '⏱️ Polling: 3s Active' : '⏸️ Polling Paused'}
           </button>
           <button
             className="btn btn-secondary"
-            style={{ fontSize: '0.8rem', padding: '6px 12px' }}
+            style={{ fontSize: '0.82rem', padding: '0.5rem 1rem' }}
             onClick={fetchMetrics}
           >
-            🔄 Refresh Now
+            🔄 Refresh
           </button>
         </div>
       </div>
 
       {error && (
-        <div className="card" style={{ borderLeft: '4px solid var(--accent-red)', marginBottom: '1.5rem' }}>
-          <span style={{ color: 'var(--accent-red)', fontWeight: 600 }}>Error: </span>
+        <div className="card" style={{ borderLeft: '4px solid var(--accent-rose)', marginBottom: '1.5rem' }}>
+          <strong style={{ color: 'var(--accent-rose)' }}>Cluster Error: </strong>
           <span>{error}</span>
         </div>
       )}
 
       {loading && !stats && (
-        <div style={{ textAlign: 'center', padding: '3rem 0' }}>
-          <div className="status-indicator active" style={{ width: '14px', height: '14px', margin: '0 auto 1rem' }} />
-          <p style={{ color: 'var(--text-muted)' }}>Connecting to Sift API and aggregating pipeline metrics...</p>
+        <div className="empty-state">
+          <div className="pulse-dot" style={{ width: '16px', height: '16px', margin: '0 auto 1.5rem' }} />
+          <h3>Connecting to Sift API Gateway...</h3>
+          <p>Aggregating pipeline metrics from Redis and MongoDB.</p>
         </div>
       )}
 
@@ -94,21 +100,28 @@ export const AdminView: React.FC = () => {
 
           <div className="stat-card">
             <div className="stat-label">Vector Embeddings Indexed</div>
-            <div className="stat-value">{stats.embeddedDocuments.toLocaleString()}</div>
+            <div className="stat-value" style={{ color: 'var(--accent-cyan)' }}>
+              {stats.embeddedDocuments.toLocaleString()}
+            </div>
             <div className="stat-sub">Stored in Qdrant HNSW vector index</div>
           </div>
 
           <div className="stat-card">
             <div className="stat-label">Unembedded Queue Backlog</div>
-            <div className="stat-value" style={{ color: stats.unembeddedDocuments > 0 ? 'var(--accent-amber)' : 'var(--accent-green)' }}>
+            <div
+              className="stat-value"
+              style={{ color: stats.unembeddedDocuments > 0 ? 'var(--accent-amber)' : 'var(--accent-emerald)' }}
+            >
               {stats.unembeddedDocuments.toLocaleString()}
             </div>
-            <div className="stat-sub">Documents awaiting dense embedding</div>
+            <div className="stat-sub">Awaiting dense embedding worker</div>
           </div>
 
           <div className="stat-card">
             <div className="stat-label">Unique Domains Crawled</div>
-            <div className="stat-value">{stats.totalDomains.toLocaleString()}</div>
+            <div className="stat-value" style={{ color: 'var(--accent-purple)' }}>
+              {stats.totalDomains.toLocaleString()}
+            </div>
             <div className="stat-sub">Politeness & crawl delay partitioned</div>
           </div>
 
@@ -116,11 +129,11 @@ export const AdminView: React.FC = () => {
             <div className="stat-label">Unresolved DLQ Failures</div>
             <div
               className="stat-value"
-              style={{ color: totalDlqErrors > 0 ? 'var(--accent-red)' : 'var(--accent-green)' }}
+              style={{ color: totalDlqErrors > 0 ? 'var(--accent-rose)' : 'var(--accent-emerald)' }}
             >
               {totalDlqErrors}
             </div>
-            <div className="stat-sub">Failed jobs pending operator review</div>
+            <div className="stat-sub">Failed jobs pending triage</div>
           </div>
 
           <div className="stat-card">
@@ -132,12 +145,17 @@ export const AdminView: React.FC = () => {
       )}
 
       <div className="card" style={{ marginTop: '1.5rem' }}>
-        <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '0.5rem' }}>
-          ⚡ BullMQ Queue Depths & Pipeline Velocity
-        </h3>
-        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
-          Monitored job states across all 6 core ingestion worker queues.
-        </p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <div>
+            <h3 style={{ fontSize: '1.15rem', fontWeight: 700, margin: 0 }}>
+              ⚡ BullMQ Queue Depths & Pipeline Velocity
+            </h3>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0.2rem 0 0' }}>
+              Monitored job states across all 6 core ingestion worker queues.
+            </p>
+          </div>
+          <span className="badge badge-primary">6 ACTIVE WORKERS</span>
+        </div>
 
         {queues && queues.queues && (
           <div style={{ overflowX: 'auto' }}>
@@ -150,7 +168,7 @@ export const AdminView: React.FC = () => {
                   <th>Delayed</th>
                   <th>Failed</th>
                   <th>Completed</th>
-                  <th>Queue Status</th>
+                  <th>Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -159,26 +177,26 @@ export const AdminView: React.FC = () => {
                   const hasErrors = q.failed > 0;
                   return (
                     <tr key={q.name}>
-                      <td style={{ fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
+                      <td style={{ fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)' }}>
                         sift-{q.name}
                       </td>
                       <td>
-                        <span style={{ color: q.waiting > 0 ? 'var(--accent-amber)' : 'var(--text-muted)' }}>
+                        <span style={{ color: q.waiting > 0 ? 'var(--accent-amber)' : 'var(--text-muted)', fontWeight: q.waiting > 0 ? 700 : 400 }}>
                           {q.waiting}
                         </span>
                       </td>
                       <td>
-                        <span style={{ color: q.active > 0 ? 'var(--accent-cyan)' : 'var(--text-muted)', fontWeight: q.active > 0 ? 600 : 400 }}>
+                        <span style={{ color: q.active > 0 ? 'var(--accent-cyan)' : 'var(--text-muted)', fontWeight: q.active > 0 ? 700 : 400 }}>
                           {q.active}
                         </span>
                       </td>
                       <td style={{ color: 'var(--text-muted)' }}>{q.delayed}</td>
                       <td>
-                        <span style={{ color: q.failed > 0 ? 'var(--accent-red)' : 'var(--text-muted)', fontWeight: q.failed > 0 ? 600 : 400 }}>
+                        <span style={{ color: q.failed > 0 ? 'var(--accent-rose)' : 'var(--text-muted)', fontWeight: q.failed > 0 ? 700 : 400 }}>
                           {q.failed}
                         </span>
                       </td>
-                      <td style={{ color: 'var(--text-muted)' }}>{q.completed.toLocaleString()}</td>
+                      <td style={{ color: 'var(--text-secondary)' }}>{q.completed.toLocaleString()}</td>
                       <td>
                         {hasErrors ? (
                           <span className="badge badge-error">Errors Detected</span>

@@ -36,8 +36,8 @@ export function getEmbeddingProvider(providerOverride?: string): EmbeddingProvid
   }
 
   logger.info(
-    { provider: 'local-deterministic', dimension: 384 },
+    { provider: 'local-deterministic', dimension: 768 },
     'Using local deterministic embedding provider'
   );
-  return new LocalDeterministicEmbeddingProvider();
+  return new LocalDeterministicEmbeddingProvider(768);
 }
